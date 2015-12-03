@@ -1,0 +1,84 @@
+[enable HTML to render MarkDown]: <pre>
+
+Defensive? Ecto updates
+=======================
+
+Ecto is a brilliant database ORM for Elixir. This post is about something
+that bothers me when reading code using Ecto.
+
+Frequently, I encounter code similar to the following.
+```
+changeset = generate_changeset(however, you, want)
+if changeset.valid? do
+  MyModel.update!(changeset)
+end
+```
+
+And I discovered Ecto's own docs are peppered with this pattern. However this
+feels as if it is against Joe Armstrong's advice and Erlang's philosophy, to
+just let things crash.
+
+Why not write this?
+```
+changeset = generate_changeset(however, you, want)
+MyModel.update(changeset)
+```
+
+The code I am most acquainted with at work does all database interactions
+on a best effort basis. Besides logging, failures are ignored.
+That might seem reckless, but frankly, it is the simplest and most sensible
+option in some situations, it is part of the tradeoffs.
+
+What, if any are the differences between these two when used purely for side
+effect?
+
+### Down the rabbit hole
+
+Let us look at [the source for default implementation of `update!`][1].
+It is embedded here for convinience.
+
+[ghembedder:elixir-lang/ecto@v1.0.7:lib/ecto/repo/model.ex#21-30]
+
+The default implementation delegates to the non-bang version and raises if
+an error tuple is returned.
+
+If we continue reading to find the non-bang versions of `insert`, `update`,
+`delete`, we find that they invoke `do_*` versions, `do_insert`, `do_update`,
+`do_delete`.  These return an error tuple only when a constraint violation is
+encountered, or if the changeset is invalid.
+
+Importantly, [this snippet][2] from ecto source shows that database access is not
+performed when the changeset is invalid, so it is not required to guard your
+code defensively.
+
+[ghembedder:elixir-lang/ecto@v1.0.7:lib/ecto/repo/model.ex#168-170]
+
+If you think about it, that is both brilliant and obvious. Ofcourse it should be
+that way, there's no other sensible implementation.
+
+### When to use one vs the other?
+
+There is only one situation in which I would personally prefer the bang
+variants over their counterparts.
+
+If a database constraint error occours and it can not be handled locally, and it
+is required to propogate the error elsewhere, use the bang variant. Omit the
+`if changeset.valid?` if model validation failures should be treated the same.
+
+If there is no way to proceed when model validations succeed but database
+constraints fail, the `if changeset.valid?, do: update!` pattern should be used.
+If it is followed by an else block, my first reaction would be to rewrite it as
+a case statement.
+
+In any other case, use `update` and friends coupled with a case statement if
+necessary.
+
+---
+
+BTW: I just wrote a [jr plugin to embed files from github][3], used above.
+View this page's source to see how to use it.
+
+[1]: https://github.com/elixir-lang/ecto/blob/v1.0.7/lib/ecto/repo/model.ex#L21-L30
+[2]: https://github.com/elixir-lang/ecto/blob/v1.0.7/lib/ecto/repo/model.ex#L168-L170
+[3]: https://github.com/phanimahesh/phanimahesh.github.io/blob/master/js/jr.js#L77-L91
+<script src="/js/jr.js"></script>
