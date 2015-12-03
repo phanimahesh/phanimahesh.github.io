@@ -6,19 +6,19 @@ var jr = {
 	 * You can define content blocks to display in your theme
 	 */
 	blocks : {
-		'footer.html' : 'footer',
+		'/footer.html' : 'footer',
 		//'header.html' : 'header'
 	},
 	styles : [
 		// Choose a theme CSS
 		// 'themes/default.css',
-		'themes/simple.css',
-		// Plus the code CSS if you have a programming blog
-		'themes/code.css',
+		'/themes/simple.css',
+    '/themes/code/atelier-dune-light.css',
 	],
 	scripts : [
-		'js/showdown.js',
-		'js/prettify.js'
+		'/js/showdown.js',
+		'/js/prettify.js',
+    '/js/ghembedder.js'
 		// if you want jQuery or some other library for a plugin
 		// '//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js'
 	],
@@ -74,6 +74,21 @@ jr.plugins.gist = function(gistId, element){
 	document.body.appendChild(script);
 }
 
+jr.plugins.ghembedder = function(spec, element){
+  var ghContainer = document.createElement('div');
+  var rt_pl = spec.split(":"),
+      rt = rt_pl[0].split("@"),
+      pl = rt_pl[1].split("#");
+  console.log(spec,rt_pl,rt,pl)
+  ghContainer.dataset.ghuserrepo = rt[0],
+  ghContainer.dataset.ghref = rt[1] || "master",
+  ghContainer.dataset.ghpath = pl[0],
+  ghContainer.dataset.ghlines = pl[1] || "all";
+  element.parentNode.replaceChild(ghContainer, element);
+  ghembedder.load(ghContainer)
+  // Wait for stuff to load. Ugly but works.
+  setTimeout(prettyPrint, 2000)
+}
 
 /**
  * CAREFUL WITH THE MAGIC BELOW ↓
